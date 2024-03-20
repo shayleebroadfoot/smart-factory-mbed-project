@@ -4,3 +4,10 @@ compile_commands.json
 .clangd
 .cache
 mbed
+DHT11
+DS1820
+TextLCD
+DS1307
+Servo
+Keypad
+buzzer
