@@ -5,8 +5,10 @@
 #include "ds1307.h"
 #include "mbed.h"
 #include <vector>
+#include<stdio.h>
 
 Serial pc(USBTX, USBRX);
+Serial bluetooth(p28, p27);
 DigitalOut led(p12);    // Automatic lights for building
 DS1307 rtc(p9, p10);    // Real-time clock module (sda, scl)
 DHT11 humidAndTemp(p6); // Humidity and temperature sensor (pin)
@@ -21,6 +23,10 @@ int day = 0;
 int date = 0;
 int month = 0;
 int year = 0;
+
+int status;
+int temperature;
+int humidity;
 
 // Control lights based on the time of day
 void automateLights() 
@@ -38,8 +44,18 @@ void automateLights()
 // Control fan speed and power based on temperature and humidity
 void regulateTemperatureAndHumidity() 
 {
-    int temperature = humidAndTemp.readTemperature();
-    int humidity = humidAndTemp.readHumidity();
+    status = humidAndTemp.readData(); // Read the status of sensor
+    if (status != DHT11::OK) 
+    {  // If not okay
+        pc.printf("Device not ready\r\n");
+    } 
+    else 
+    { // If the status is okay, read the values
+        temperature = humidAndTemp.readTemperature();
+        humidity = humidAndTemp.readHumidity();
+        pc.printf("Temperature: %d C\r\n", temperature);
+        pc.printf("Humidity: %d %%\r\n", humidity);
+    }
 
     lcd.cls();
     lcd.locate(0, 0);
@@ -73,8 +89,12 @@ void regulateTemperatureAndHumidity()
 
 int main() 
 {
+    bluetooth.baud(9600);
     fanSwitch.period(0.1);
-    int status = humidAndTemp.readData(); // Read the status of sensor
+    
+    char buffer[3] = {0};
+    char symbol = 248; // degree symbol
+    status = humidAndTemp.readData(); // Read the status of sensor
 
     while (status != DHT11::OK) 
     {
@@ -83,11 +103,21 @@ int main()
 
     while (1) 
     {
+        if(bluetooth.readable()) 
+        {
+            bluetooth.gets(buffer, sizeof(buffer));
+        }
+        
         automateLights();
 
         regulateTemperatureAndHumidity();
 
-        wait(1);
+        bluetooth.printf((led == 1 ? "ON" : "OFF"));
+        bluetooth.printf("|");
+        bluetooth.printf("%i %cC", temperature, symbol);
+        bluetooth.printf("|");
+        bluetooth.printf("%i %%", humidity);
+        wait(3);
     }
 }
 
